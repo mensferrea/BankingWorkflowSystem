@@ -1,0 +1,268 @@
+﻿@page "/applications/create"
+@rendermode InteractiveServer
+@inject IApplicationService ApplicationService
+@inject IClientService ClientService
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Создание кредитной заявки | Банк «ФИНАНСОВЫЙ СТАНДАРТ»</PageTitle>
+
+<div class="container-fluid px-0" style="max-width: 900px;">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a href="applications" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+        <h3 class="fw-bold mb-0">Оформление новой кредитной заявки</h3>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorMessage
+            <button type="button" class="btn-close" @onclick="() => ErrorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body p-4">
+            <form @onsubmit="CreateApplicationAsync">
+                <!-- Step 1: Select Client -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-bold mb-0">1. Выбор заемщика (клиента)*</label>
+                        <a href="clients/create" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-person-plus"></i> Зарегистрировать нового клиента
+                        </a>
+                    </div>
+
+                    <select class="form-select" @bind="Model.ClientId" @bind:after="OnClientSelected">
+                        <option value="@Guid.Empty">-- Выберите клиента из списка --</option>
+                        @foreach (var c in ClientLookups)
+                        {
+                            <option value="@c.Id">@c.FullName (ИНН: @c.TaxNumber, Паспорт: @c.Passport)</option>
+                        }
+                    </select>
+
+                    @if (SelectedClient != null)
+                    {
+                        <div class="mt-2 p-3 bg-light rounded border">
+                            <div class="d-flex justify-content-between">
+                                <span class="small text-muted">Заемщик: <strong>@SelectedClient.FullName</strong></span>
+                                <span class="small text-muted">Ежемесячный доход: <strong class="text-success">@SelectedClient.MonthlyIncome.ToString("N0") ₽</strong></span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <hr class="text-muted my-4" />
+
+                <!-- Step 2: Loan Parameters -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3">2. Параметры кредитного продукта</label>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Тип кредитного продукта*</label>
+                            <select class="form-select" @bind="Model.ProductType" @bind:after="UpdateDefaultRate">
+                                <option value="@ProductType.ConsumerLoan">Потребительский кредит</option>
+                                <option value="@ProductType.Mortgage">Ипотечное кредитование</option>
+                                <option value="@ProductType.AutoLoan">Автокредит</option>
+                                <option value="@ProductType.BusinessLoan">Кредитование бизнеса</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Сумма кредита (₽)*</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" step="10000" min="10000" max="100000000"
+                                       @bind="Model.LoanAmount" @bind:event="oninput" @bind:after="CalculateLoan" />
+                                <span class="input-group-text">₽</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Срок кредитования (месяцев)*</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" min="3" max="360"
+                                       @bind="Model.LoanTermMonths" @bind:event="oninput" @bind:after="CalculateLoan" />
+                                <span class="input-group-text">мес.</span>
+                            </div>
+                            <div class="btn-group btn-group-sm mt-1" role="group">
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => SetTerm(12)">1 год</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => SetTerm(36)">3 года</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => SetTerm(60)">5 лет</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => SetTerm(120)">10 лет</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => SetTerm(240)">20 лет</button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Процентная ставка (% годовых)*</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" step="0.1" min="1" max="99"
+                                       @bind="Model.InterestRate" @bind:event="oninput" @bind:after="CalculateLoan" />
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Realtime Calculation Box -->
+                <div class="p-4 bg-primary-subtle rounded-3 border border-primary-subtle mb-4">
+                    <h6 class="fw-bold text-primary mb-3">
+                        <i class="bi bi-calculator me-1"></i> Предварительный расчет параметров выплаты:
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            <span class="small text-muted d-block">Аннуитетный платеж:</span>
+                            <span class="fs-4 fw-bold text-success">@CalcMonthlyPayment.ToString("N2") ₽ / мес.</span>
+                        </div>
+                        <div class="col-sm-4">
+                            <span class="small text-muted d-block">Общая выплата за весь срок:</span>
+                            <span class="fs-4 fw-bold text-dark">@CalcTotalPayment.ToString("N2") ₽</span>
+                        </div>
+                        <div class="col-sm-4">
+                            <span class="small text-muted d-block">Переплата (проценты банку):</span>
+                            <span class="fs-4 fw-bold text-secondary">@CalcOverpayment.ToString("N2") ₽</span>
+                        </div>
+                    </div>
+
+                    @if (SelectedClient != null && SelectedClient.MonthlyIncome > 0)
+                    {
+                        var dti = CalcMonthlyPayment / SelectedClient.MonthlyIncome * 100;
+                        <div class="mt-3 pt-3 border-top border-primary-subtle d-flex justify-content-between align-items-center">
+                            <span class="small">
+                                Показатель долговой нагрузки (ПДН):
+                                <strong class="@(dti > 50 ? "text-danger" : "text-success")">
+                                    @dti.ToString("N1")%
+                                </strong>
+                                @if (dti > 50)
+                                {
+                                    <span class="badge bg-danger ms-2">Высокий риск (>50%)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success ms-2">Нормальная нагрузка (&lt;50%)</span>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="applications" class="btn btn-outline-secondary">Отмена</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold" disabled="@IsSubmitting">
+                        @if (IsSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Зарегистрировать заявку
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateApplicationDto Model = new()
+    {
+        LoanAmount = 500_000,
+        LoanTermMonths = 36,
+        InterestRate = 16.5m,
+        ProductType = ProductType.ConsumerLoan
+    };
+
+    private List<ClientLookupDto> ClientLookups = new();
+    private ClientLookupDto? SelectedClient;
+    private string? ErrorMessage;
+    private bool IsSubmitting = false;
+
+    private decimal CalcMonthlyPayment = 0;
+    private decimal CalcTotalPayment = 0;
+    private decimal CalcOverpayment = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ClientLookups = await ClientService.GetLookupAsync();
+        CalculateLoan();
+    }
+
+    private void OnClientSelected()
+    {
+        SelectedClient = ClientLookups.FirstOrDefault(c => c.Id == Model.ClientId);
+    }
+
+    private void SetTerm(int months)
+    {
+        Model.LoanTermMonths = months;
+        CalculateLoan();
+    }
+
+    private void UpdateDefaultRate()
+    {
+        Model.InterestRate = Model.ProductType switch
+        {
+            ProductType.Mortgage => 12.0m,
+            ProductType.AutoLoan => 15.5m,
+            ProductType.BusinessLoan => 14.0m,
+            _ => 17.5m
+        };
+        CalculateLoan();
+    }
+
+    private void CalculateLoan()
+    {
+        if (Model.LoanTermMonths <= 0 || Model.LoanAmount <= 0)
+        {
+            CalcMonthlyPayment = 0;
+            CalcTotalPayment = 0;
+            CalcOverpayment = 0;
+            return;
+        }
+
+        if (Model.InterestRate <= 0)
+        {
+            CalcMonthlyPayment = Math.Round(Model.LoanAmount / Model.LoanTermMonths, 2);
+            CalcTotalPayment = Model.LoanAmount;
+            CalcOverpayment = 0;
+            return;
+        }
+
+        var monthlyRate = (double)(Model.InterestRate / 100m / 12m);
+        var factor = Math.Pow(1.0 + monthlyRate, Model.LoanTermMonths);
+        var payment = (double)Model.LoanAmount * (monthlyRate * factor) / (factor - 1.0);
+
+        CalcMonthlyPayment = Math.Round((decimal)payment, 2);
+        CalcTotalPayment = Math.Round(CalcMonthlyPayment * Model.LoanTermMonths, 2);
+        CalcOverpayment = Math.Max(0, CalcTotalPayment - Model.LoanAmount);
+    }
+
+    private async Task CreateApplicationAsync()
+    {
+        if (Model.ClientId == Guid.Empty)
+        {
+            ErrorMessage = "Пожалуйста, выберите клиента.";
+            return;
+        }
+
+        IsSubmitting = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "system";
+            var userName = user.Identity?.Name ?? "Оператор";
+
+            var created = await ApplicationService.CreateAsync(Model, userId, userName);
+            Navigation.NavigateTo($"applications/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            IsSubmitting = false;
+        }
+    }
+}

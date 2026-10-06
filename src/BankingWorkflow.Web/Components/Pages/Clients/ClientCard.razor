@@ -1,0 +1,205 @@
+﻿@page "/clients/{Id:guid}"
+@rendermode InteractiveServer
+@inject IClientService ClientService
+@inject IApplicationService ApplicationService
+@inject NavigationManager Navigation
+
+<PageTitle>Карточка клиента @(Client?.FullName ?? "") | Банк «ФИНАНСОВЫЙ СТАНДАРТ»</PageTitle>
+
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <a href="clients" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Назад к клиентам
+            </a>
+            <h3 class="fw-bold mb-0">Карточка клиента: @Client?.FullName</h3>
+            @if (Client != null)
+            {
+                <span class="badge @GetRatingBadge(Client.CreditRating) fs-6">
+                    Рейтинг: @Client.CreditRating
+                </span>
+            }
+        </div>
+
+        <div class="d-flex gap-2">
+            @if (Client != null)
+            {
+                <a href="applications/create" class="btn btn-primary d-flex align-items-center gap-2">
+                    <i class="bi bi-plus-circle"></i> Оформить новую заявку
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (Client == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="text-muted mt-2">Загрузка данных клиента...</div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Client Info Cards -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-header bg-white py-3 border-bottom">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-person text-primary me-2"></i> Персональные данные</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Полное имя:</span>
+                            <span class="fw-bold fs-5 text-dark">@Client.FullName</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Дата рождения / возраст:</span>
+                            <span class="fw-medium">@Client.BirthDate.ToString("dd.MM.yyyy") (@Client.Age лет)</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Паспорт гражданина РФ:</span>
+                            <span class="font-monospace fw-bold">Серия @Client.PassportSeries № @Client.PassportNumber</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">ИНН заемщика:</span>
+                            <span class="font-monospace fw-bold">@Client.TaxNumber</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Телефон:</span>
+                            <span class="fw-medium">@Client.PhoneNumber</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Email:</span>
+                            <span class="fw-medium">@Client.Email</span>
+                        </div>
+
+                        <div>
+                            <span class="small text-muted d-block">Адрес регистрации:</span>
+                            <span class="fw-medium text-dark">@Client.RegistrationAddress</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white py-3 border-bottom">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-cash-coin text-primary me-2"></i> Финансовый профиль</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Ежемесячный подтвержденный доход:</span>
+                            <span class="fw-bold fs-4 text-success">@Client.MonthlyIncome.ToString("N0") ₽</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="small text-muted d-block">Трудовая занятость:</span>
+                            <span class="fw-medium">@Client.EmploymentStatus</span>
+                        </div>
+
+                        <div>
+                            <span class="small text-muted d-block">Скоринговый рейтинг:</span>
+                            <span class="badge @GetRatingBadge(Client.CreditRating) fs-6 mt-1">@Client.CreditRating</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Client's Loan Applications History -->
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-folder-check text-primary me-2"></i> История кредитных заявок клиента
+                            <span class="badge bg-light text-dark border ms-1">@ClientApplications.Count</span>
+                        </h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Номер заявки</th>
+                                    <th>Дата</th>
+                                    <th>Продукт</th>
+                                    <th>Сумма</th>
+                                    <th>Срок</th>
+                                    <th>Статус</th>
+                                    <th class="text-end">Действие</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (ClientApplications.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5 text-muted">
+                                            У данного клиента пока нет кредитных заявок
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var app in ClientApplications)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">
+                                                <a href="applications/@app.Id" class="text-decoration-none">
+                                                    @app.ApplicationNumber
+                                                </a>
+                                            </td>
+                                            <td class="small text-muted">@app.CreatedAt.ToString("dd.MM.yyyy")</td>
+                                            <td>@app.ProductType</td>
+                                            <td class="fw-bold">@app.LoanAmount.ToString("N0") ₽</td>
+                                            <td>@app.LoanTermMonths мес.</td>
+                                            <td>
+                                                <span class="badge @GetStatusBadge(app.Status)">@app.StatusTitle</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="applications/@app.Id" class="btn btn-sm btn-outline-primary">
+                                                    Просмотр →
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ClientDto? Client;
+    private List<ApplicationSummaryDto> ClientApplications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Client = await ClientService.GetByIdAsync(Id);
+        ClientApplications = await ApplicationService.GetByClientIdAsync(Id);
+    }
+
+    private static string GetRatingBadge(CreditRating rating) => rating switch
+    {
+        CreditRating.Excellent => "bg-success",
+        CreditRating.Good => "bg-info text-dark",
+        CreditRating.Fair => "bg-warning text-dark",
+        _ => "bg-danger"
+    };
+
+    private static string GetStatusBadge(ApplicationStatus status) => status switch
+    {
+        ApplicationStatus.New => "bg-primary",
+        ApplicationStatus.InProgress => "bg-warning text-dark",
+        ApplicationStatus.Approved => "bg-success",
+        ApplicationStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BankingWorkflow.Application/BankingWorkflow.Application.csproj" />
+    <Project Path="src/BankingWorkflow.Domain/BankingWorkflow.Domain.csproj" />
+    <Project Path="src/BankingWorkflow.Infrastructure/BankingWorkflow.Infrastructure.csproj" />
+    <Project Path="src/BankingWorkflow.Web/BankingWorkflow.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BankingWorkflow.Tests/BankingWorkflow.Tests.csproj" />
+  </Folder>
+</Solution>

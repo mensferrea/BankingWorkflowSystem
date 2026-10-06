@@ -1,0 +1,158 @@
+﻿@page "/clients/create"
+@rendermode InteractiveServer
+@inject IClientService ClientService
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Регистрация клиента | Банк «ФИНАНСОВЫЙ СТАНДАРТ»</PageTitle>
+
+<div class="container-fluid px-0" style="max-width: 850px;">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a href="clients" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+        <h3 class="fw-bold mb-0">Регистрация нового клиента</h3>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorMessage
+            <button type="button" class="btn-close" @onclick="() => ErrorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-4">
+            <form @onsubmit="CreateClientAsync">
+                <!-- Personal Info -->
+                <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-person me-2"></i> Персональные данные</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Фамилия*</label>
+                        <input type="text" class="form-control" required @bind="Model.LastName" placeholder="Иванов" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Имя*</label>
+                        <input type="text" class="form-control" required @bind="Model.FirstName" placeholder="Иван" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Отчество</label>
+                        <input type="text" class="form-control" @bind="Model.MiddleName" placeholder="Иванович" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Дата рождения* (не менее 18 лет)</label>
+                        <input type="date" class="form-control" required @bind="BirthDateInput" />
+                    </div>
+                </div>
+
+                <!-- Passport & Tax -->
+                <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-card-heading me-2"></i> Документы, удостоверяющие личность</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">Серия паспорта (4 цифры)*</label>
+                        <input type="text" class="form-control font-monospace" maxlength="4" required
+                               @bind="Model.PassportSeries" placeholder="4512" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Номер паспорта (6 цифр)*</label>
+                        <input type="text" class="form-control font-monospace" maxlength="6" required
+                               @bind="Model.PassportNumber" placeholder="123456" />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small text-muted">ИНН (10 или 12 цифр)*</label>
+                        <input type="text" class="form-control font-monospace" maxlength="12" required
+                               @bind="Model.TaxNumber" placeholder="771234567890" />
+                    </div>
+                </div>
+
+                <!-- Contacts & Address -->
+                <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-telephone me-2"></i> Контакты и адрес</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Номер мобильного телефона*</label>
+                        <input type="tel" class="form-control" required @bind="Model.PhoneNumber" placeholder="+7 (999) 000-00-00" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Email адрес*</label>
+                        <input type="email" class="form-control" required @bind="Model.Email" placeholder="client@example.com" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-muted">Адрес постоянной регистрации*</label>
+                        <input type="text" class="form-control" required @bind="Model.RegistrationAddress"
+                               placeholder="г. Москва, ул. Ленина, д. 10, кв. 25" />
+                    </div>
+                </div>
+
+                <!-- Financial -->
+                <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-cash-stack me-2"></i> Финансовое положение</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Ежемесячный подтвержденный доход (₽)*</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" step="1000" min="1000" required @bind="Model.MonthlyIncome" />
+                            <span class="input-group-text">₽</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Статус трудовой занятости*</label>
+                        <select class="form-select" @bind="Model.EmploymentStatus">
+                            <option value="@EmploymentStatus.Employed">Работа по найму (официальное трудоустройство)</option>
+                            <option value="@EmploymentStatus.SelfEmployed">Самозанятый гражданин</option>
+                            <option value="@EmploymentStatus.BusinessOwner">Владелец бизнеса / ИП</option>
+                            <option value="@EmploymentStatus.Retired">Пенсионер</option>
+                            <option value="@EmploymentStatus.Unemployed">Временно не работает</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="clients" class="btn btn-outline-secondary">Отмена</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold" disabled="@IsSubmitting">
+                        @if (IsSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Сохранить карточку клиента
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateClientDto Model = new()
+    {
+        MonthlyIncome = 75_000,
+        EmploymentStatus = EmploymentStatus.Employed,
+        CreditRating = CreditRating.Good
+    };
+
+    private DateOnly BirthDateInput = new(1990, 1, 1);
+    private string? ErrorMessage;
+    private bool IsSubmitting = false;
+
+    private async Task CreateClientAsync()
+    {
+        Model.BirthDate = BirthDateInput;
+        IsSubmitting = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "system";
+            var userName = user.Identity?.Name ?? "Оператор";
+
+            var created = await ClientService.CreateAsync(Model, userId, userName);
+            Navigation.NavigateTo($"clients/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            IsSubmitting = false;
+        }
+    }
+}

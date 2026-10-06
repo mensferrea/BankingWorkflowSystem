@@ -1,0 +1,231 @@
+﻿@inherits LayoutComponentBase
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject INotificationService NotificationService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <header class="top-row px-4 d-flex justify-content-between align-items-center bg-white border-bottom shadow-sm">
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-secondary small fw-bold text-uppercase d-none d-md-inline">Быстрая смена роли:</span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn @(CurrentRole == UserRole.Operator ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SwitchRole(UserRole.Operator)">
+                        <i class="bi bi-person me-1"></i> Оператор
+                    </button>
+                    <button type="button" class="btn @(CurrentRole == UserRole.Manager ? "btn-success" : "btn-outline-secondary")"
+                            @onclick="() => SwitchRole(UserRole.Manager)">
+                        <i class="bi bi-person-check me-1"></i> Менеджер
+                    </button>
+                    <button type="button" class="btn @(CurrentRole == UserRole.Admin ? "btn-danger" : "btn-outline-secondary")"
+                            @onclick="() => SwitchRole(UserRole.Admin)">
+                        <i class="bi bi-shield-lock me-1"></i> Админ
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <button class="btn btn-light position-relative rounded-circle p-2 border"
+                            @onclick="ToggleNotifications"
+                            title="Уведомления системы">
+                        <i class="bi bi-bell fs-5 text-secondary"></i>
+                        @if (UnreadNotificationsCount > 0)
+                        {
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                @UnreadNotificationsCount
+                            </span>
+                        }
+                    </button>
+
+                    @if (ShowNotificationDropdown)
+                    {
+                        <div class="card shadow position-absolute end-0 mt-2 border-0"
+                             style="width: 380px; z-index: 1050; max-height: 480px; overflow-y: auto;">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+                                <span class="fw-bold small"><i class="bi bi-bell-fill me-1"></i> Уведомления</span>
+                                <button class="btn btn-sm btn-outline-light py-0 px-2 small" @onclick="MarkAllRead">
+                                    Прочитано всё
+                                </button>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                @if (Notifications.Count == 0)
+                                {
+                                    <div class="p-3 text-center text-muted small">Нет новых уведомлений</div>
+                                }
+                                else
+                                {
+                                    @foreach (var n in Notifications)
+                                    {
+                                        <div class="list-group-item p-3 @(n.IsRead ? "bg-light text-muted" : "bg-white")">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <strong class="small text-dark">@n.Title</strong>
+                                                <span class="text-muted" style="font-size: 0.75rem;">
+                                                    @n.CreatedAt.ToString("HH:mm dd.MM")
+                                                </span>
+                                            </div>
+                                            <p class="small mb-1 text-secondary">@n.Message</p>
+                                            @if (n.ApplicationId.HasValue)
+                                            {
+                                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                                    <a href="applications/@n.ApplicationId" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                                        Перейти к заявке →
+                                                    </a>
+                                                    @if (!n.IsRead)
+                                                    {
+                                                        <button class="btn btn-link btn-sm text-muted p-0" style="font-size: 0.75rem;" @onclick="() => MarkRead(n.Id)">
+                                                            Прочитано
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="vr mx-1"></div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold"
+                         style="width: 36px; height: 36px; font-size: 0.9rem;">
+                        @(CurrentUserName.Length > 0 ? CurrentUserName[0] : 'U')
+                    </div>
+                    <div class="d-none d-sm-block text-start leading-tight">
+                        <div class="fw-bold small text-dark">@CurrentUserName</div>
+                        <span class="badge @GetRoleBadgeClass(CurrentRole)" style="font-size: 0.7rem;">
+                            @GetRoleTitle(CurrentRole)
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <article class="content px-4 py-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Произошла непредвиденная ошибка.
+    <a href="." class="reload">Перезагрузить</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string CurrentUserName = "Смирнова Анна (Оператор)";
+    private UserRole CurrentRole = UserRole.Operator;
+    private int UnreadNotificationsCount = 0;
+    private List<NotificationDto> Notifications = new();
+    private bool ShowNotificationDropdown = false;
+    private System.Threading.Timer? _pollingTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserAsync();
+        await LoadNotificationsAsync();
+
+        _pollingTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadNotificationsAsync();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    private async Task LoadUserAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            CurrentUserName = user.Identity.Name ?? "Пользователь";
+            var roleClaim = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (Enum.TryParse<UserRole>(roleClaim, true, out var r))
+            {
+                CurrentRole = r;
+            }
+        }
+        else
+        {
+            await SwitchRole(UserRole.Operator);
+        }
+    }
+
+    private async Task SwitchRole(UserRole role)
+    {
+        await AuthStateProvider.SwitchDemoRoleAsync(role);
+        CurrentRole = role;
+        CurrentUserName = role switch
+        {
+            UserRole.Admin => "Администратор Системы",
+            UserRole.Manager => "Иванов Петр (Менеджер)",
+            _ => "Смирнова Анна (Оператор)"
+        };
+        await LoadNotificationsAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        try
+        {
+            UnreadNotificationsCount = await NotificationService.GetUnreadCountAsync(null, CurrentRole);
+            Notifications = await NotificationService.GetNotificationsForUserAsync(null, CurrentRole, 8);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task ToggleNotifications()
+    {
+        ShowNotificationDropdown = !ShowNotificationDropdown;
+        if (ShowNotificationDropdown)
+        {
+            await LoadNotificationsAsync();
+        }
+    }
+
+    private async Task MarkRead(Guid id)
+    {
+        await NotificationService.MarkAsReadAsync(id);
+        await LoadNotificationsAsync();
+    }
+
+    private async Task MarkAllRead()
+    {
+        await NotificationService.MarkAllAsReadAsync(null, CurrentRole);
+        await LoadNotificationsAsync();
+    }
+
+    private static string GetRoleBadgeClass(UserRole role) => role switch
+    {
+        UserRole.Admin => "bg-danger",
+        UserRole.Manager => "bg-success",
+        _ => "bg-primary"
+    };
+
+    private static string GetRoleTitle(UserRole role) => role switch
+    {
+        UserRole.Admin => "Администратор",
+        UserRole.Manager => "Кредитный менеджер",
+        _ => "Оператор фронт-офиса"
+    };
+
+    public void Dispose()
+    {
+        _pollingTimer?.Dispose();
+    }
+}

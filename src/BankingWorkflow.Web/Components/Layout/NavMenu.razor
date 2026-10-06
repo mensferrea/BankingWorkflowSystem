@@ -1,0 +1,62 @@
+﻿<div class="top-row ps-3 navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="">
+            <i class="bi bi-bank2 text-primary fs-4"></i>
+            <span>Банк «СТАНДАРТ»</span>
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column py-2">
+        <div class="nav-item px-3 mb-1">
+            <NavLink class="nav-link py-2" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2 me-2"></i> Дашборд
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-1">
+            <NavLink class="nav-link py-2" href="applications">
+                <i class="bi bi-file-earmark-text me-2"></i> Реестр заявок
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-1">
+            <NavLink class="nav-link py-2" href="applications/create">
+                <i class="bi bi-plus-circle me-2"></i> Новая заявка
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-1">
+            <NavLink class="nav-link py-2" href="clients">
+                <i class="bi bi-people me-2"></i> Картотека клиентов
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-1">
+            <NavLink class="nav-link py-2" href="clients/create">
+                <i class="bi bi-person-plus me-2"></i> Новый клиент
+            </NavLink>
+        </div>
+
+        <AuthorizeView Roles="Manager,Admin">
+            <Authorized>
+                <div class="nav-item px-3 mb-1">
+                    <NavLink class="nav-link py-2" href="audit-logs">
+                        <i class="bi bi-journal-text me-2"></i> Журнал аудита
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <div class="px-3 pt-3 pb-1 text-muted text-uppercase small fw-bold">Интеграции</div>
+
+        <div class="nav-item px-3 mb-1">
+            <a class="nav-link py-2 text-info" href="swagger" target="_blank">
+                <i class="bi bi-code-slash me-2"></i> Swagger REST API
+            </a>
+        </div>
+    </nav>
+</div>

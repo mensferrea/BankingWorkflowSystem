@@ -1,0 +1,42 @@
+﻿services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: banking_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: banking_workflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d banking_workflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  banking-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: banking_workflow_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=banking_workflow;Username=postgres;Password=postgres
+      - Jwt__Secret=SuperSecretBankingWorkflowSystemKey2026Net10ForEnterpriseSecurity!
+      - Jwt__Issuer=BankingWorkflowApi
+      - Jwt__Audience=BankingWorkflowClient
+    ports:
+      - "5000:8080"
+    volumes:
+      - app_storage:/app/App_Data
+
+volumes:
+  postgres_data:
+  app_storage:
