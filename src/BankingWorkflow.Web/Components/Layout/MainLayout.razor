@@ -1,6 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject CustomAuthenticationStateProvider AuthStateProvider
-@inject INotificationService NotificationService
+@inject IServiceScopeFactory ScopeFactory
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -141,7 +141,7 @@
                 await LoadNotificationsAsync();
                 StateHasChanged();
             });
-        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+        }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
     }
 
     private async Task LoadUserAsync()
@@ -181,8 +181,10 @@
     {
         try
         {
-            UnreadNotificationsCount = await NotificationService.GetUnreadCountAsync(null, CurrentRole);
-            Notifications = await NotificationService.GetNotificationsForUserAsync(null, CurrentRole, 8);
+            using var scope = ScopeFactory.CreateScope();
+            var notifService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            UnreadNotificationsCount = await notifService.GetUnreadCountAsync(null, CurrentRole);
+            Notifications = await notifService.GetNotificationsForUserAsync(null, CurrentRole, 8);
         }
         catch
         {
@@ -200,14 +202,30 @@
 
     private async Task MarkRead(Guid id)
     {
-        await NotificationService.MarkAsReadAsync(id);
-        await LoadNotificationsAsync();
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var notifService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            await notifService.MarkAsReadAsync(id);
+            await LoadNotificationsAsync();
+        }
+        catch
+        {
+        }
     }
 
     private async Task MarkAllRead()
     {
-        await NotificationService.MarkAllAsReadAsync(null, CurrentRole);
-        await LoadNotificationsAsync();
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var notifService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            await notifService.MarkAllAsReadAsync(null, CurrentRole);
+            await LoadNotificationsAsync();
+        }
+        catch
+        {
+        }
     }
 
     private static string GetRoleBadgeClass(UserRole role) => role switch
