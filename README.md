@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/C%23-14.0-239120?logo=csharp&logoColor=white" alt="C#" />
   <img src="https://img.shields.io/badge/Blazor-Interactive%20Server-512BD4?logo=blazor&logoColor=white" alt="Blazor" />
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/EF%20Core-10.0-512BD4" alt="EF Core" />
   <img src="https://img.shields.io/badge/ClosedXML-Excel-217346?logo=microsoftexcel&logoColor=white" alt="ClosedXML" />
   <img src="https://img.shields.io/badge/OpenXML-Word-2B579A?logo=microsoftword&logoColor=white" alt="OpenXML" />
